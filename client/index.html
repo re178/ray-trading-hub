@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<title>Ray Trading Hub</title>
+<style>
+  :root{
+    --bg:#0a0d12; --panel:#10151d; --panel-2:#141b25; --line:#1e2836;
+    --text:#d7dee8; --muted:#7c8b9e; --dim:#556173;
+    --up:#1fbf75; --down:#e5484d; --accent:#3b82f6; --warn:#eab308;
+    --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font:12px/1.45 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; overflow:hidden;
+  }
+  button,input,select{font:inherit;color:inherit;outline:none}
+  button{cursor:pointer;background:none;border:none}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#222e3d;border-radius:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  #app{display:none;height:100vh;height:100dvh;flex-direction:column}
+  #app.on{display:flex}
+
+  .topbar{height:44px;flex:0 0 44px;display:flex;align-items:center;gap:16px;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--line);overflow:hidden}
+  .brand{font-weight:700;letter-spacing:.14em;font-size:12px;color:#fff;white-space:nowrap}
+  .brand span{color:var(--accent)}
+  .topbar .spacer{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:3px;border:1px solid var(--line);background:var(--panel-2);font-size:11px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex:0 0 auto}
+  .dot.ok{background:var(--up);box-shadow:0 0 6px rgba(31,191,117,.7)}
+  .dot.bad{background:var(--down);box-shadow:0 0 6px rgba(229,72,77,.7)}
+  .dot.warn{background:var(--warn);box-shadow:0 0 6px rgba(234,179,8,.7)}
+  .acct-badge{display:flex;align-items:center;gap:8px;padding:3px 10px;border-radius:3px;font-weight:700;letter-spacing:.12em;font-size:11px;border:1px solid transparent;white-space:nowrap}
+  .acct-badge.real{background:rgba(229,72,77,.14);border-color:rgba(229,72,77,.5);color:#ff8a8d}
+  .acct-badge.demo{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.5);color:#8ab6ff}
+  .acct-badge.unknown{background:rgba(124,139,158,.14);border-color:var(--line);color:var(--muted)}
+
+  .main{flex:1;display:grid;grid-template-columns:220px 1fr 268px;min-height:0}
+  .col{min-height:0;display:flex;flex-direction:column;overflow:hidden}
+  .col.left{border-right:1px solid var(--line);background:var(--panel)}
+  .col.right{border-left:1px solid var(--line);background:var(--panel)}
+  .col.center{background:var(--bg)}
+
+  .panel{border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .panel:last-child{border-bottom:none}
+  .panel-head{flex:0 0 auto;padding:7px 10px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .panel-body{overflow:auto;min-height:0}
+
+  .wl-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;border-left:2px solid transparent;cursor:pointer}
+  .wl-item:hover{background:var(--panel-2)}
+  .wl-item.active{background:var(--panel-2);border-left-color:var(--accent)}
+  .wl-sym{font-weight:600;letter-spacing:.03em}
+  .wl-price{font-family:var(--mono);font-size:11px}
+  .wl-chg{font-size:10px;font-family:var(--mono);color:var(--dim)}
+
+  .kv{display:flex;justify-content:space-between;padding:4px 10px;font-size:11px;gap:8px}
+  .kv span:first-child{color:var(--muted);flex:0 0 auto}
+  .kv span:last-child{font-family:var(--mono);text-align:right;overflow:hidden;text-overflow:ellipsis}
+
+  .chart-head{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+  .chart-sym{font-weight:700;font-size:13px;letter-spacing:.05em;margin-right:4px}
+  .tf{padding:3px 8px;border-radius:3px;font-size:11px;color:var(--muted);border:1px solid transparent;font-family:var(--mono)}
+  .tf:hover{background:var(--panel-2);color:var(--text)}
+  .tf.active{background:var(--panel-2);border-color:var(--accent);color:#fff}
+  .ohlc{display:flex;gap:10px;font-family:var(--mono);font-size:11px;margin-left:auto}
+  .ohlc b{font-weight:500}
+  .chart-wrap{flex:1;position:relative;min-height:0}
+  #chart{width:100%;height:100%;display:block;cursor:crosshair}
+  .chart-legend{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:11px;background:rgba(10,13,18,.75);padding:6px 9px;border:1px solid var(--line);border-radius:3px;pointer-events:none;line-height:1.6;display:none}
+  .chart-legend.on{display:block}
+
+  .bal{font-family:var(--mono);font-size:19px;padding:2px 10px 8px;letter-spacing:.02em}
+  .stat-row{display:flex;justify-content:space-between;padding:3px 10px;font-size:11px;gap:8px}
+  .stat-row span:first-child{color:var(--muted)}
+  .stat-row span:last-child{font-family:var(--mono);text-align:right}
+
+  .ticket{padding:8px 10px 12px;display:flex;flex-direction:column;gap:8px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .field input,.field select{background:var(--panel-2);border:1px solid var(--line);border-radius:3px;padding:6px 8px;font-family:var(--mono);font-size:12px;width:100%}
+  .field input:focus,.field select:focus{border-color:var(--accent)}
+  .field input:disabled,.field select:disabled{opacity:.4;cursor:not-allowed}
+  .field .hint{font-size:10px;color:var(--dim);min-height:12px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btn{padding:9px;border-radius:3px;font-weight:700;letter-spacing:.1em;font-size:11px;text-transform:uppercase;background:var(--accent);color:#fff;text-align:center;transition:filter .12s}
+  .btn:hover:not(:disabled){filter:brightness(1.12)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .ticket-msg{font-size:11px;padding:7px 9px;border-radius:3px;line-height:1.5;display:none;white-space:pre-wrap}
+  .ticket-msg.on{display:block}
+  .ticket-msg.err{background:rgba(229,72,77,.12);border:1px solid rgba(229,72,77,.4);color:#ff9b9e}
+  .ticket-msg.ok{background:rgba(31,191,117,.12);border:1px solid rgba(31,191,117,.4);color:#6ee2a8}
+
+  .tables{flex:0 0 34%;display:grid;grid-template-columns:1fr 1fr 320px;border-top:1px solid var(--line);min-height:0}
+  .tbl-wrap{min-height:0;display:flex;flex-direction:column;border-right:1px solid var(--line)}
+  .tbl-wrap:last-child{border-right:none}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{position:sticky;top:0;background:var(--panel);text-align:left;padding:5px 8px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line);z-index:1;white-space:nowrap}
+  td{padding:5px 8px;border-bottom:1px solid rgba(30,40,54,.55);font-family:var(--mono);white-space:nowrap}
+  tbody tr:hover{background:var(--panel-2)}
+  .empty{padding:14px;color:var(--dim);text-align:center;font-size:11px}
+  .up{color:var(--up)} .down{color:var(--down)} .mut{color:var(--muted)}
+  .tag{display:inline-block;padding:1px 6px;border-radius:2px;font-size:9px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);background:var(--panel-2);color:var(--muted)}
+  .tag.open{border-color:rgba(59,130,246,.5);color:#8ab6ff}
+  .tag.win{border-color:rgba(31,191,117,.5);color:#6ee2a8}
+  .tag.loss{border-color:rgba(229,72,77,.5);color:#ff9b9e}
+  .tag.err{border-color:rgba(229,72,77,.5);color:#ff9b9e}
+
+  .evt{display:flex;gap:8px;padding:3px 8px;font-size:11px;font-family:var(--mono);border-bottom:1px solid rgba(30,40,54,.4)}
+  .evt time{color:var(--dim);flex:0 0 auto}
+  .evt .ev{flex:0 0 auto;color:var(--accent)}
+  .evt .ms{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .evt.error .ev{color:var(--down)}
+  .evt.warn .ev{color:var(--warn)}
+
+  #login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 30%,#131c28,#070a0e 70%);z-index:50}
+  #login.hide{display:none}
+  .login-box{width:320px;max-width:90vw;background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:24px;display:flex;flex-direction:column;gap:14px}
+  .login-box h1{font-size:14px;letter-spacing:.18em;font-weight:700;color:#fff}
+  .login-box h1 span{color:var(--accent)}
+  .login-box p{font-size:11px;color:var(--muted);line-height:1.6}
+
+  @media (max-width:1180px){
+    .main{grid-template-columns:180px 1fr 240px}
+    .tables{grid-template-columns:1fr 1fr}
+    .tables .tbl-wrap:nth-child(3){display:none}
+  }
+  @media (max-width:900px){
+    body{overflow:auto}
+    #app.on{height:auto;min-height:100dvh}
+    .main{display:flex;flex-direction:column}
+    .col.left,.col.right{border:none;border-bottom:1px solid var(--line)}
+    .col.center{min-height:60vh}
+    .chart-wrap{height:52vh}
+    .tables{grid-template-columns:1fr;display:block;flex:0 0 auto}
+    .tbl-wrap{border-right:none;border-bottom:1px solid var(--line);max-height:230px}
+    .panel-body{max-height:230px}
+  }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form class="login-box" id="loginForm">
+    <h1>RAY <span>TRADING HUB</span></h1>
+    <p>Operator authentication. Credentials are verified server-side. The Deriv API token never reaches this browser.</p>
+    <div class="field">
+      <label for="pw">Operator password</label>
+      <input id="pw" type="password" autocomplete="current-password" required />
+    </div>
+    <div class="ticket-msg err" id="loginErr"></div>
+    <button class="btn" type="submit" id="loginBtn">Authenticate</button>
+  </form>
+</div>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand">RAY <span>TRADING HUB</span></div>
+    <div class="pill" id="pDeriv"><i class="dot"></i><span>Deriv</span></div>
+    <div class="pill" id="pWs"><i class="dot"></i><span>Stream</span></div>
+    <div class="pill" id="pDb"><i class="dot"></i><span>DB</span></div>
+    <div class="spacer"></div>
+    <div id="acctBadge" class="acct-badge unknown">ACCOUNT · UNKNOWN</div>
+    <div class="pill" id="pCurrency">—</div>
+    <button class="pill" id="logoutBtn" title="Sign out">Sign out</button>
+  </header>
+
+  <div class="main">
+    <div class="col left">
+      <div class="panel" style="flex:0 0 auto">
+        <div class="panel-head">Watchlist</div>
+        <div class="panel-body" id="watchlist"></div>
+      </div>
+      <div class="panel" style="flex:1 1 auto">
+        <div class="panel-head">Market info</div>
+        <div class="panel-body" id="marketInfo"></div>
+      </div>
+    </div>
+
+    <div class="col center">
+      <div class="chart-head">
+        <div class="chart-sym" id="chartSym">—</div>
+        <div id="tfBar" style="display:flex;gap:2px"></div>
+        <div class="ohlc" id="ohlc"></div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+        <div class="chart-legend" id="legend"></div>
+      </div>
+    </div>
+
+    <div class="col right">
+      <div class="panel" style="flex:0 0 auto">
+        <div class="panel-head">Account</div>
+        <div class="bal" id="balance">—</div>
+        <div class="panel-body" id="accountStats" style="padding-bottom:8px"></div>
+      </div>
+      <div class="panel" style="flex:1 1 auto">
+        <div class="panel-head">Trade ticket</div>
+        <div class="panel-body">
+          <form class="ticket" id="ticketForm" autocomplete="off">
+            <div class="field">
+              <label>Contract</label>
+              <select id="fContract" disabled><option>—</option></select>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label>Stake</label>
+                <input id="fStake" type="number" step="0.01" min="0" value="10.00" />
+                <div class="hint" id="hStake"></div>
+              </div>
+              <div class="field">
+                <label>Multiplier</label>
+                <input id="fMultiplier" type="number" step="1" min="1" disabled />
+                <div class="hint" id="hMultiplier"></div>
+              </div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label>Duration</label>
+                <input id="fDuration" type="number" step="1" min="1" disabled />
+                <div class="hint" id="hDuration"></div>
+              </div>
+              <div class="field">
+                <label>Unit</label>
+                <select id="fUnit" disabled></select>
+                <div class="hint" id="hUnit"></div>
+              </div>
+            </div>
+            <div class="ticket-msg" id="ticketMsg"></div>
+            <button class="btn" type="submit" id="placeBtn" disabled>Place trade</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tables">
+    <div class="tbl-wrap">
+      <div class="panel-head">Open positions <span id="posCount" class="mut"></span></div>
+      <div class="panel-body">
+        <table>
+          <thead><tr>
+            <th>Contract</th><th>Symbol</th><th>Type</th><th>Stake</th>
+            <th>Entry</th><th>Current</th><th>P/L</th><th>Status</th>
+          </tr></thead>
+          <tbody id="posBody"><tr><td colspan="8" class="empty">No open positions</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tbl-wrap">
+      <div class="panel-head">Trade history <span id="histCount" class="mut"></span></div>
+      <div class="panel-body">
+        <table>
+          <thead><tr>
+            <th>Trade</th><th>Symbol</th><th>Type</th><th>Stake</th>
+            <th>Entry</th><th>Exit</th><th>P/L</th><th>Result</th>
+          </tr></thead>
+          <tbody id="histBody"><tr><td colspan="8" class="empty">No trades yet</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tbl-wrap">
+      <div class="panel-head">Execution log</div>
+      <div class="panel-body" id="eventLog"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const TF = [
+  { g: 60,    label: '1m'  },
+  { g: 300,   label: '5m'  },
+  { g: 900,   label: '15m' },
+  { g: 1800,  label: '30m' },
+  { g: 3600,  label: '1h'  },
+  { g: 14400, label: '4h'  },
+  { g: 86400, label: '1d'  },
+];
+
+const state = {
+  session: null,
+  instruments: [],
+  instrumentMap: new Map(),
+  activeSymbol: null,
+  granularity: 60,
+  candleCache: new Map(),
+  ticks: new Map(),
+  capabilities: [],
+  account: {},
+  summary: {},
+  positions: new Map(),
+  trades: [],
+  connection: { deriv: 'unknown', database: 'unknown', ws: 'disconnected' },
+  submitting: false,
+};
+
+const $ = (id) => document.getElementById(id);
+const fmt = (n, d = 2) => (n === null || n === undefined || Number.isNaN(Number(n))) ? '—' : Number(n).toFixed(d);
+const signCls = (n) => Number(n) > 0 ? 'up' : Number(n) < 0 ? 'down' : 'mut';
+const signStr = (n, d = 2) => (n === null || n === undefined || Number.isNaN(Number(n))) ? '—' : (Number(n) > 0 ? '+' : '') + Number(n).toFixed(d);
+const hhmmss = (epoch) => new Date((epoch || 0) * 1000).toLocaleTimeString('en-GB', { hour12: false });
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const kv = (k, v) => `<div class="kv"><span>${k}</span><span>${v}</span></div>`;
+
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options,
+  });
+  let body = null;
+  try { body = await res.json(); } catch (_) {}
+  if (!res.ok) {
+    const err = new Error((body && body.error && body.error.message) || `HTTP ${res.status}`);
+    err.code = (body && body.error && body.error.code) || `HTTP_${res.status}`;
+    err.status = res.status;
+    err.payload = body;
+    throw err;
+  }
+  return body;
+}
+
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('loginBtn'); btn.disabled = true; btn.textContent = 'Authenticating…';
+  $('loginErr').classList.remove('on');
+  try {
+    const out = await api('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ password: $('pw').value }),
+    });
+    state.session = out.session;
+    await boot();
+  } catch (err) {
+    $('loginErr').textContent = err.message || 'Authentication failed';
+    $('loginErr').classList.add('on');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Authenticate';
+  }
+});
+
+$('logoutBtn').addEventListener('click', async () => {
+  try { await api('/api/auth/logout', { method: 'POST' }); } catch (_) {}
+  location.reload();
+});
+
+async function boot() {
+  $('login').classList.add('hide');
+  $('app').classList.add('on');
+
+  if (!state.session) {
+    try { state.session = await api('/api/auth/session'); } catch (_) { return; }
+  }
+
+  buildTimeframeBar();
+  await Promise.all([loadInstruments(), loadAccount(), loadPositions(), loadTrades(), loadSystemStatus()]).catch(() => {});
+  connectWS();
+  resizeChart();
+  requestAnimationFrame(render);
+}
+
+async function loadInstruments() {
+  const out = await api('/api/instruments');
+  state.instruments = out.instruments || [];
+  state.instrumentMap = new Map(state.instruments.map((i) => [i.symbol, i]));
+  renderWatchlist();
+  if (state.instruments.length && !state.activeSymbol) {
+    selectSymbol(state.instruments[0].symbol);
+  } else if (state.activeSymbol) {
+    renderMarketInfo();
+  }
+}
+
+async function selectSymbol(symbol) {
+  if (!symbol) return;
+  state.activeSymbol = symbol;
+  renderWatchlist();
+  renderMarketInfo();
+  $('chartSym').textContent = symbol;
+  await loadCandles(symbol, state.granularity);
+  await loadCapabilities(symbol);
+  sendWS({ type: 'chart.subscribe', symbol, granularity: state.granularity });
+}
+
+function renderWatchlist() {
+  const el = $('watchlist');
+  if (!state.instruments.length) { el.innerHTML = '<div class="empty">No instruments configured</div>'; return; }
+  el.innerHTML = state.instruments.map((i) => {
+    const t = state.ticks.get(i.symbol);
+    return `<div class="wl-item${i.symbol === state.activeSymbol ? ' active' : ''}" data-sym="${esc(i.symbol)}">
+      <div>
+        <div class="wl-sym">${esc(i.displayName || i.symbol)}</div>
+        <div class="wl-chg">${i.isOpen ? 'open' : 'closed'}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="wl-price" id="wl-${esc(i.symbol)}">${t ? fmt(t.quote, i.displayDecimals ?? 5) : '—'}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('.wl-item').forEach((n) => n.addEventListener('click', () => selectSymbol(n.dataset.sym)));
+}
+
+function renderMarketInfo() {
+  const i = state.instrumentMap.get(state.activeSymbol);
+  const t = state.ticks.get(state.activeSymbol);
+  const d = i ? (i.displayDecimals ?? 5) : 5;
+  const spread = t && t.ask != null && t.bid != null ? t.ask - t.bid : null;
+  $('marketInfo').innerHTML = [
+    kv('Symbol', esc(state.activeSymbol || '—')),
+    kv('Name', esc(i ? i.displayName : '—')),
+    kv('Market', esc(i ? `${i.market || ''} ${i.submarket || ''}`.trim() : '—')),
+    kv('Bid', t && t.bid != null ? fmt(t.bid, d) : '—'),
+    kv('Ask', t && t.ask != null ? fmt(t.ask, d) : '—'),
+    kv('Last', t ? fmt(t.quote, d) : '—'),
+    kv('Spread', spread != null ? fmt(spread, d) : '—'),
+    kv('Status', i && i.isOpen ? '<span class="up">OPEN</span>' : '<span class="down">CLOSED</span>'),
+    kv('Tick time', t ? hhmmss(t.epoch) : '—'),
+  ].join('');
+}
+
+function ckey(symbol, g) { return `${symbol}|${g}`; }
+
+async function loadCandles(symbol, g) {
+  const key = ckey(symbol, g);
+  try {
+    const out = await api(`/api/candles/${encodeURIComponent(symbol)}?granularity=${g}&count=400`);
+    state.candleCache.set(key, out.candles || []);
+    chart.view.offset = 0;
+    chart.dirty = true;
+  } catch (err) {
+    if (!state.candleCache.has(key)) state.candleCache.set(key, []);
+    pushEvent('error', 'candles.fetch', err.message);
+  }
+}
+
+async function loadAccount() {
+  try {
+    const [acct, summary] = await Promise.all([api('/api/account'), api('/api/account/summary')]);
+    applyAccount(acct.account, summary.summary);
+  } catch (err) { pushEvent('error', 'account.fetch', err.message); }
+}
+
+function applyAccount(account, summary) {
+  if (account) state.account = account;
+  if (summary) state.summary = summary;
+
+  const a = state.account || {};
+  const mode = String(a.mode || 'unknown').toUpperCase();
+  const badge = $('acctBadge');
+  badge.className = `acct-badge ${mode === 'REAL' ? 'real' : mode === 'DEMO' ? 'demo' : 'unknown'}`;
+  badge.textContent = `ACCOUNT · ${mode}`;
+  $('pCurrency').textContent = a.currency || '—';
+  $('balance').textContent = a.balance != null ? `${fmt(a.balance, 2)} ${a.currency || ''}`.trim() : '—';
+
+  const s = state.summary || {};
+  $('accountStats').innerHTML = [
+    kv('Login', esc(a.accountId || a.loginid || '—')),
+    kv('Unrealized P/L', `<span class="${signCls(s.unrealizedPl)}">${signStr(s.unrealizedPl)}</span>`),
+    kv('Equity*', s.equity != null ? fmt(s.equity, 2) : '—'),
+    kv('Open exposure', s.openExposure != null ? fmt(s.openExposure, 2) : '—'),
+    kv('Open contracts', s.openContracts ?? 0),
+    kv("Today's P/L", `<span class="${signCls(s.todayPl)}">${signStr(s.todayPl)}</span>`),
+    kv('Session P/L', `<span class="${signCls(s.sessionPl)}">${signStr(s.sessionPl)}</span>`),
+    kv('Total trades', s.totalTrades ?? 0),
+    kv('Won / Lost', `${s.winningTrades ?? 0} / ${s.losingTrades ?? 0}`),
+    `<div style="padding:4px 10px 0;font-size:10px;color:var(--dim)">* Equity = balance + unrealized P/L (locally calculated from Deriv contract data)</div>`,
+  ].join('');
+
+  renderPositions();
+}
+
+async function loadPositions() {
+  try {
+    const out = await api('/api/contracts?status=open');
+    state.positions = new Map((out.contracts || []).map((c) => [c.contractId, c]));
+    renderPositions();
+  } catch (err) { pushEvent('error', 'positions.fetch', err.message); }
+}
+
+async function loadTrades() {
+  try {
+    const out = await api('/api/trades?limit=100');
+    state.trades = out.trades || [];
+    renderTrades();
+  } catch (err) { pushEvent('error', 'trades.fetch', err.message); }
+}
+
+function renderPositions() {
+  const list = [...state.positions.values()].filter((c) => !c.isSold);
+  $('posCount').textContent = list.length ? `(${list.length})` : '';
+  const body = $('posBody');
+  if (!list.length) { body.innerHTML = '<tr><td colspan="8" class="empty">No open positions</td></tr>'; return; }
+  body.innerHTML = list.map((c) => `
+    <tr>
+      <td>${esc(c.contractId)}</td>
+      <td>${esc(c.symbol || '—')}</td>
+      <td>${esc(c.contractType || '—')}</td>
+      <td>${fmt(c.stake ?? c.buyPrice, 2)}</td>
+      <td>${c.entrySpot != null ? fmt(c.entrySpot, 5) : '—'}</td>
+      <td>${c.currentSpot != null ? fmt(c.currentSpot, 5) : '—'}</td>
+      <td class="${signCls(c.profit)}">${signStr(c.profit)}</td>
+      <td><span class="tag open">${esc(c.status || 'OPEN')}</span></td>
+    </tr>`).join('');
+}
+
+function renderTrades() {
+  $('histCount').textContent = state.trades.length ? `(${state.trades.length})` : '';
+  const body = $('histBody');
+  if (!state.trades.length) { body.innerHTML = '<tr><td colspan="8" class="empty">No trades yet</td></tr>'; return; }
+  body.innerHTML = state.trades.map((t) => {
+    const cls = t.result === 'WIN' ? 'win' : t.result === 'LOSS' ? 'loss' : '';
+    return `<tr title="${esc(t.tradeId)}">
+      <td>${esc(String(t.tradeId).slice(0, 12))}</td>
+      <td>${esc(t.symbol || '—')}</td>
+      <td>${esc(t.contractType || '—')}</td>
+      <td>${fmt(t.stake, 2)}</td>
+      <td>${t.entrySpot != null ? fmt(t.entrySpot, 5) : '—'}</td>
+      <td>${t.exitSpot != null ? fmt(t.exitSpot, 5) : '—'}</td>
+      <td class="${signCls(t.profit)}">${signStr(t.profit)}</td>
+      <td><span class="tag ${cls}">${esc(t.result || t.status || '—')}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadSystemStatus() {
+  try {
+    const out = await api('/api/system/status');
+    if (out.deriv && out.deriv.state) state.connection.deriv = out.deriv.state;
+    if (out.database && out.database.state) state.connection.database = out.database.state;
+    renderStatus();
+  } catch (_) {}
+}
+
+function renderStatus() {
+  const set = (id, ok, text) => {
+    const el = $(id);
+    el.querySelector('.dot').className = `dot ${ok === true ? 'ok' : ok === false ? 'bad' : 'warn'}`;
+    el.querySelector('span:last-child').textContent = text;
+  };
+  const d = state.connection.deriv;
+  set('pDeriv',
+    d === 'authorized' || d === 'connected',
+    d === 'authorized' ? 'Deriv · authorized'
+      : d === 'connected' ? 'Deriv · connected'
+      : d === 'reconnecting' ? 'Deriv · reconnecting'
+      : d === 'connecting' ? 'Deriv · connecting'
+      : d === 'authorizing' ? 'Deriv · authorizing'
+      : 'Deriv · offline');
+  set('pWs', state.connection.ws === 'connected', `Stream · ${state.connection.ws}`);
+  set('pDb', state.connection.database === 'connected', `DB · ${state.connection.database || 'unknown'}`);
+}
+
+function pushEvent(level, ev, msg) {
+  const log = $('eventLog');
+  const row = document.createElement('div');
+  row.className = `evt ${level}`;
+  row.innerHTML = `<time>${new Date().toLocaleTimeString('en-GB', { hour12: false })}</time>
+                   <span class="ev">${esc(ev)}</span><span class="ms">${esc(msg || '')}</span>`;
+  log.prepend(row);
+  while (log.children.length > 250) log.removeChild(log.lastChild);
+}
+
+let ws = null, wsRetry = 0, wsPingTimer = null;
+
+function wsURL() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${location.host}/ws`;
+}
+
+function connectWS() {
+  try { ws = new WebSocket(wsURL()); } catch (_) { scheduleWSReconnect(); return; }
+
+  ws.onopen = () => {
+    wsRetry = 0;
+    state.connection.ws = 'connected';
+    renderStatus();
+    pushEvent('info', 'stream.connected', 'WebSocket connected');
+    sendWS({ type: 'subscribe', symbols: state.instruments.map((i) => i.symbol) });
+    if (state.activeSymbol) sendWS({ type: 'chart.subscribe', symbol: state.activeSymbol, granularity: state.granularity });
+    clearInterval(wsPingTimer);
+    wsPingTimer = setInterval(() => sendWS({ type: 'ping' }), 25000);
+  };
+
+  ws.onmessage = (e) => {
+    let msg; try { msg = JSON.parse(e.data); } catch (_) { return; }
+    handleServerMessage(msg);
+  };
+
+  ws.onclose = () => {
+    state.connection.ws = 'disconnected';
+    renderStatus();
+    clearInterval(wsPingTimer);
+    scheduleWSReconnect();
+  };
+
+  ws.onerror = () => { try { ws.close(); } catch (_) {} };
+}
+
+function scheduleWSReconnect() {
+  wsRetry += 1;
+  const delay = Math.min(1000 * Math.pow(1.7, wsRetry), 20000) + Math.random() * 400;
+  pushEvent('warn', 'stream.reconnect', `Reconnecting in ${Math.round(delay / 1000)}s`);
+  setTimeout(connectWS, delay);
+}
+
+function sendWS(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    try { ws.send(JSON.stringify(obj)); } catch (_) {}
+  }
+}
+
+function handleServerMessage(msg) {
+  if (!msg || !msg.type) return;
+
+  if (msg.type === 'hello') {
+    const d = msg.data || {};
+    if (d.account) applyAccount(d.account, d.summary);
+    if (d.connection) {
+      if (d.connection.deriv) state.connection.deriv = d.connection.deriv;
+      if (d.connection.database) state.connection.database = d.connection.database;
+      state.connection.ws = 'connected';
+      renderStatus();
+    }
+    if (Array.isArray(d.instruments) && d.instruments.length && !state.instruments.length) {
+      state.instruments = d.instruments;
+      state.instrumentMap = new Map(d.instruments.map((i) => [i.symbol, i]));
+      renderWatchlist();
+    }
+    if (Array.isArray(d.openContracts)) {
+      state.positions = new Map(d.openContracts.map((c) => [c.contractId, c]));
+      renderPositions();
+    }
+    return;
+  }
+
+  if (msg.type === 'chart.snapshot') {
+    const d = msg.data || {};
+    if (!d.symbol || !d.granularity) return;
+    state.candleCache.set(ckey(d.symbol, d.granularity), d.candles || []);
+    if (d.symbol === state.activeSymbol && d.granularity === state.granularity) chart.dirty = true;
+    return;
+  }
+
+  if (msg.type === 'subscribed' || msg.type === 'unsubscribed') {
+    return;
+  }
+
+  if (msg.type === 'pong') return;
+
+  if (msg.type === 'error') {
+    pushEvent('error', 'stream.error', (msg.data && msg.data.message) || 'Unknown stream error');
+    return;
+  }
+
+  if (msg.type !== 'event') return;
+  const { event, data } = msg;
+
+  switch (event) {
+    case 'market.tick': {
+      if (!data || !data.symbol) return;
+      state.ticks.set(data.symbol, data);
+      const inst = state.instrumentMap.get(data.symbol);
+      const el = $(`wl-${data.symbol}`);
+      if (el) el.textContent = fmt(data.quote, inst ? (inst.displayDecimals ?? 5) : 5);
+      if (data.symbol === state.activeSymbol) renderMarketInfo();
+      return;
+    }
+    case 'market.candle.updated':
+    case 'market.candle.closed': {
+      if (!data || !data.symbol || !data.granularity) return;
+      const key = ckey(data.symbol, data.granularity);
+      const arr = state.candleCache.get(key);
+      if (!arr) return;
+      const last = arr[arr.length - 1];
+      if (last && last.epoch === data.epoch) arr[arr.length - 1] = data;
+      else if (!last || data.epoch > last.epoch) arr.push(data);
+      if (key === ckey(state.activeSymbol, state.granularity)) chart.dirty = true;
+      return;
+    }
+    case 'account.updated': {
+      if (data) {
+        state.account = { ...state.account, ...data };
+        applyAccount(null, null);
+      }
+      return;
+    }
+    case 'account.balance.updated': {
+      if (data && data.balance != null) {
+        state.account.balance = data.balance;
+        if (data.currency) state.account.currency = data.currency;
+        applyAccount(null, null);
+      }
+      return;
+    }
+    case 'position.opened':
+    case 'position.updated':
+    case 'contract.updated': {
+      if (data && data.contractId) {
+        state.positions.set(String(data.contractId), data);
+        renderPositions();
+      }
+      return;
+    }
+    case 'position.closed':
+    case 'contract.closed': {
+      if (data && data.contractId) {
+        state.positions.delete(String(data.contractId));
+        renderPositions();
+      }
+      return;
+    }
+    case 'trade.completed': {
+      loadTrades();
+      return;
+    }
+    case 'order.rejected':
+    case 'order.failed': {
+      pushEvent('error', event, (data && (data.message || data.code)) || 'Order failed');
+      showTicketMessage('err', `TRADE NOT SENT\n${(data && data.message) || 'Deriv rejected the request.'}${data && data.code ? `\nCode: ${data.code}` : ''}${data && data.derivRequestId ? `\nRequest ID: ${data.derivRequestId}` : ''}`);
+      return;
+    }
+    case 'order.accepted':
+    case 'order.submitted': {
+      pushEvent('info', event, (data && data.clientOrderId) || '');
+      return;
+    }
+    case 'connection.status': {
+      const t = data && data.target;
+      const s = data && data.state;
+      if (t === 'deriv' && s) { state.connection.deriv = s; renderStatus(); }
+      return;
+    }
+    case 'system.status': {
+      if (data && data.deriv && data.deriv.state) state.connection.deriv = data.deriv.state;
+      if (data && data.database && data.database.state) state.connection.database = data.database.state;
+      renderStatus();
+      return;
+    }
+    case 'system.error':
+    case 'deriv.error': {
+      pushEvent('error', event, (data && (data.message || data.code)) || '');
+      return;
+    }
+    case 'deriv.connected': { state.connection.deriv = 'connected'; renderStatus(); return; }
+    case 'deriv.authorized': { state.connection.deriv = 'authorized'; renderStatus(); return; }
+    case 'deriv.disconnected': { state.connection.deriv = 'disconnected'; renderStatus(); return; }
+    case 'deriv.reconnecting': { state.connection.deriv = 'reconnecting'; renderStatus(); return; }
+    default: return;
+  }
+}
+
+async function loadCapabilities(symbol) {
+  const sel = $('fContract');
+  sel.innerHTML = '<option>Loading…</option>';
+  sel.disabled = true;
+  $('placeBtn').disabled = true;
+  try {
+    const out = await api(`/api/instruments/${encodeURIComponent(symbol)}/capabilities`);
+    state.capabilities = out.capabilities || [];
+    if (!state.capabilities.length) {
+      sel.innerHTML = '<option value="">No contracts available</option>';
+      showTicketMessage('err', 'Deriv reports no tradable contract types for this instrument right now.');
+      return;
+    }
+    sel.innerHTML = state.capabilities
+      .map((c) => `<option value="${esc(c.contractType)}">${esc(c.display)} (${esc(c.contractType)})</option>`)
+      .join('');
+    sel.disabled = false;
+    applyCapability(state.capabilities[0]);
+    $('placeBtn').disabled = false;
+  } catch (err) {
+    sel.innerHTML = '<option value="">Unavailable</option>';
+    showTicketMessage('err', `Could not load trade capabilities: ${err.message}`);
+  }
+}
+
+function currentCapability() {
+  const t = $('fContract').value;
+  return state.capabilities.find((c) => c.contractType === t) || null;
+}
+
+function applyCapability(cap) {
+  if (!cap) return;
+  const multField = $('fMultiplier');
+  const durField = $('fDuration');
+  const unitField = $('fUnit');
+
+  const hasMultiplier = !!(cap.multiplier && cap.multiplier.values && cap.multiplier.values.length);
+  multField.disabled = !hasMultiplier;
+  $('hMultiplier').textContent = hasMultiplier
+    ? `Allowed: ${cap.multiplier.values.join(', ')}${cap.multiplier.source === 'deriv' ? '' : ' (configured)'}`
+    : 'Not supported for this contract type';
+  if (hasMultiplier) {
+    multField.value = cap.multiplier.values[0];
+    multField.min = cap.multiplier.values[0];
+    multField.max = cap.multiplier.values[cap.multiplier.values.length - 1];
+  } else {
+    multField.value = '';
+  }
+
+  const hasDuration = !!cap.durationUnit;
+  durField.disabled = !hasDuration;
+  unitField.disabled = !hasDuration;
+  if (hasDuration) {
+    unitField.innerHTML = `<option value="${esc(cap.durationUnit)}">${esc(unitLabel(cap.durationUnit))}</option>`;
+    const min = cap.minDuration != null ? cap.minDuration : 1;
+    durField.min = min;
+    if (cap.maxDuration != null) durField.max = cap.maxDuration; else durField.removeAttribute('max');
+    durField.value = min;
+    $('hDuration').textContent = `Min ${min}${cap.maxDuration != null ? ` · Max ${cap.maxDuration}` : ''} ${unitLabel(cap.durationUnit)}`;
+    $('hUnit').textContent = '';
+  } else {
+    durField.value = '';
+    $('hDuration').textContent = 'Not supported for this contract type';
+    $('hUnit').textContent = '';
+  }
+
+  $('hStake').textContent = cap.limits
+    ? `min ${cap.limits.minStake} · max ${cap.limits.maxStake}${cap.limits.source === 'deriv' ? '' : ' (configured)'}`
+    : '';
+}
+
+const unitLabel = (u) => ({ t: 'ticks', s: 'seconds', m: 'minutes', h: 'hours', d: 'days' }[u] || u);
+
+$('fContract').addEventListener('change', () => applyCapability(currentCapability()));
+
+function showTicketMessage(kind, text) {
+  const el = $('ticketMsg');
+  el.className = `ticket-msg on ${kind}`;
+  el.textContent = text;
+  if (kind === 'ok') setTimeout(() => el.classList.remove('on'), 6000);
+}
+
+$('ticketForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (state.submitting) return;
+
+  const cap = currentCapability();
+  if (!cap) return;
+
+  const stake = parseFloat($('fStake').value);
+  if (!Number.isFinite(stake) || stake <= 0) { showTicketMessage('err', 'Enter a valid stake.'); return; }
+
+  const clientOrderId = (crypto.randomUUID && crypto.randomUUID()) ||
+    `co-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+  const payload = {
+    clientOrderId,
+    symbol: state.activeSymbol,
+    contractType: cap.contractType,
+    stake,
+    currency: state.account.currency || 'USD',
+  };
+  if (!$('fMultiplier').disabled && $('fMultiplier').value) payload.multiplier = Number($('fMultiplier').value);
+  if (!$('fDuration').disabled && $('fDuration').value) {
+    payload.duration = Number($('fDuration').value);
+    payload.durationUnit = $('fUnit').value;
+  }
+
+  state.submitting = true;
+  $('placeBtn').disabled = true;
+  $('placeBtn').textContent = 'Submitting…';
+  $('ticketMsg').classList.remove('on');
+
+  try {
+    const out = await api('/api/orders', { method: 'POST', body: JSON.stringify(payload) });
+    showTicketMessage('ok', `Order ${out.order.clientOrderId} → ${out.order.state}${out.order.contractId ? ` · contract ${out.order.contractId}` : ''}`);
+    pushEvent('info', 'order.placed', `${out.order.clientOrderId} ${out.order.state}`);
+    await Promise.all([loadPositions(), loadTrades(), loadAccount()]);
+  } catch (err) {
+    const d = err.payload && err.payload.error;
+    showTicketMessage('err', [
+      'TRADE NOT SENT',
+      d && d.message ? d.message : err.message,
+      d && d.code ? `Code: ${d.code}` : null,
+      d && d.requestId ? `Request ID: ${d.requestId}` : null,
+    ].filter(Boolean).join('\n'));
+    pushEvent('error', 'order.failed', (d && d.message) || err.message);
+  } finally {
+    state.submitting = false;
+    $('placeBtn').disabled = false;
+    $('placeBtn').textContent = 'Place trade';
+  }
+});
+
+const canvas = $('chart');
+const ctx = canvas.getContext('2d');
+const legend = $('legend');
+
+const chart = {
+  dirty: true,
+  view: { offset: 0, bars: 140 },
+  geo: null,
+  hover: null,
+  dragging: false,
+  dragX: 0,
+  dragOffset: 0,
+};
+
+function buildTimeframeBar() {
+  $('tfBar').innerHTML = TF.map((t) =>
+    `<button class="tf${t.g === state.granularity ? ' active' : ''}" data-g="${t.g}">${t.label}</button>`).join('');
+  $('tfBar').querySelectorAll('.tf').forEach((b) => {
+    b.addEventListener('click', async () => {
+      state.granularity = Number(b.dataset.g);
+      $('tfBar').querySelectorAll('.tf').forEach((x) => x.classList.toggle('active', x === b));
+      if (state.activeSymbol) {
+        await loadCandles(state.activeSymbol, state.granularity);
+        sendWS({ type: 'chart.subscribe', symbol: state.activeSymbol, granularity: state.granularity });
+      }
+    });
+  });
+}
+
+function resizeChart() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  canvas.width = Math.floor(w * dpr);
+  canvas.height = Math.floor(h * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  chart.dirty = true;
+}
+window.addEventListener('resize', () => resizeChart());
+
+function visibleCandles() {
+  if (!state.activeSymbol) return [];
+  const arr = state.candleCache.get(ckey(state.activeSymbol, state.granularity)) || [];
+  if (!arr.length) return [];
+  const bars = Math.min(chart.view.bars, arr.length);
+  const end = Math.max(bars, arr.length - chart.view.offset);
+  const start = Math.max(0, end - bars);
+  return arr.slice(start, end);
+}
+
+function draw() {
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  if (!W || !H) return;
+
+  ctx.fillStyle = '#0a0d12';
+  ctx.fillRect(0, 0, W, H);
+
+  const candles = visibleCandles();
+  const padR = 62, padB = 20, padT = 8, padL = 4;
+  const plotW = W - padR - padL;
+  const plotH = H - padB - padT;
+
+  if (!candles.length) {
+    ctx.fillStyle = '#556173';
+    ctx.font = '12px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('No candle data available for this instrument / timeframe', W / 2, H / 2);
+    ctx.textAlign = 'left';
+    chart.geo = null;
+    return;
+  }
+
+  let hi = -Infinity, lo = Infinity;
+  for (const c of candles) { if (c.high > hi) hi = c.high; if (c.low < lo) lo = c.low; }
+  if (!Number.isFinite(hi) || !Number.isFinite(lo)) { hi = 1; lo = 0; }
+  const pad = (hi - lo) * 0.08 || Math.abs(hi) * 0.001 || 0.0001;
+  hi += pad; lo -= pad;
+  const range = hi - lo || 1;
+
+  const y = (p) => padT + (hi - p) / range * plotH;
+  const barW = plotW / candles.length;
+  const x = (i) => padL + i * barW;
+  const bodyW = Math.max(1, Math.min(barW * 0.7, 18));
+
+  chart.geo = { candles, x, y, barW, padL, padT, plotW, plotH, hi, lo, W, H, padR, padB };
+
+  ctx.strokeStyle = 'rgba(30,40,54,.8)';
+  ctx.fillStyle = '#556173';
+  ctx.font = '10px ' + getComputedStyle(document.documentElement).getPropertyValue('--mono');
+  ctx.lineWidth = 1;
+  const gridLines = 6;
+  for (let i = 0; i <= gridLines; i++) {
+    const py = Math.round(padT + (plotH / gridLines) * i) + 0.5;
+    ctx.beginPath(); ctx.moveTo(padL, py); ctx.lineTo(padL + plotW, py); ctx.stroke();
+    const price = hi - (range / gridLines) * i;
+    ctx.fillText(fmt(price, 5), padL + plotW + 6, py + 3);
+  }
+
+  const step = Math.max(1, Math.floor(candles.length / 8));
+  for (let i = 0; i < candles.length; i += step) {
+    const c = candles[i];
+    const tx = x(i) + barW / 2;
+    ctx.strokeStyle = 'rgba(30,40,54,.6)';
+    ctx.beginPath(); ctx.moveTo(Math.round(tx) + 0.5, padT); ctx.lineTo(Math.round(tx) + 0.5, padT + plotH); ctx.stroke();
+    const d = new Date(c.epoch * 1000);
+    const label = state.granularity >= 86400
+      ? `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+      : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    ctx.fillStyle = '#556173';
+    ctx.fillText(label, tx - 14, H - 6);
+  }
+
+  for (let i = 0; i < candles.length; i++) {
+    const c = candles[i];
+    const up = c.close >= c.open;
+    const color = up ? '#1fbf75' : '#e5484d';
+    const cx = x(i) + barW / 2;
+
+    ctx.strokeStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(cx) + 0.5, y(c.high));
+    ctx.lineTo(Math.round(cx) + 0.5, y(c.low));
+    ctx.stroke();
+
+    const yo = y(c.open), yc = y(c.close);
+    const top = Math.min(yo, yc);
+    const hgt = Math.max(1, Math.abs(yc - yo));
+    ctx.fillStyle = color;
+    ctx.fillRect(cx - bodyW / 2, top, bodyW, hgt);
+  }
+
+  const lastC = candles[candles.length - 1];
+  const lastY = y(lastC.close);
+  ctx.strokeStyle = 'rgba(59,130,246,.6)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(padL, lastY); ctx.lineTo(padL + plotW, lastY); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#3b82f6';
+  ctx.fillRect(padL + plotW, lastY - 8, padR - 2, 16);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(fmt(lastC.close, 5), padL + plotW + 5, lastY + 3);
+
+  if (chart.hover && chart.hover.x >= padL && chart.hover.x <= padL + plotW) {
+    const idx = Math.max(0, Math.min(candles.length - 1, Math.floor((chart.hover.x - padL) / barW)));
+    const c = candles[idx];
+    const hx = x(idx) + barW / 2;
+    ctx.strokeStyle = 'rgba(124,139,158,.45)';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(Math.round(hx) + 0.5, padT); ctx.lineTo(Math.round(hx) + 0.5, padT + plotH); ctx.stroke();
+    if (chart.hover.y >= padT && chart.hover.y <= padT + plotH) {
+      ctx.beginPath(); ctx.moveTo(padL, Math.round(chart.hover.y) + 0.5); ctx.lineTo(padL + plotW, Math.round(chart.hover.y) + 0.5); ctx.stroke();
+      const p = hi - ((chart.hover.y - padT) / plotH) * range;
+      ctx.fillStyle = '#141b25';
+      ctx.fillRect(padL + plotW, chart.hover.y - 8, padR - 2, 16);
+      ctx.fillStyle = '#d7dee8';
+      ctx.fillText(fmt(p, 5), padL + plotW + 5, chart.hover.y + 3);
+    }
+    ctx.setLineDash([]);
+
+    const up = c.close >= c.open;
+    legend.className = 'chart-legend on';
+    legend.innerHTML =
+      `<div>O <b>${fmt(c.open, 5)}</b>  H <b>${fmt(c.high, 5)}</b></div>` +
+      `<div>L <b>${fmt(c.low, 5)}</b>  C <b style="color:${up ? '#1fbf75' : '#e5484d'}">${fmt(c.close, 5)}</b></div>` +
+      `<div style="color:#556173">${new Date(c.epoch * 1000).toLocaleString('en-GB', { hour12: false })}</div>`;
+
+    const o = $('ohlc');
+    o.innerHTML = `<span class="mut">O</span> <b>${fmt(c.open, 5)}</b>
+                   <span class="mut">H</span> <b>${fmt(c.high, 5)}</b>
+                   <span class="mut">L</span> <b>${fmt(c.low, 5)}</b>
+                   <span class="mut">C</span> <b class="${up ? 'up' : 'down'}">${fmt(c.close, 5)}</b>`;
+  } else {
+    legend.className = 'chart-legend';
+    const up = lastC.close >= lastC.open;
+    $('ohlc').innerHTML = `<span class="mut">O</span> <b>${fmt(lastC.open, 5)}</b>
+                           <span class="mut">H</span> <b>${fmt(lastC.high, 5)}</b>
+                           <span class="mut">L</span> <b>${fmt(lastC.low, 5)}</b>
+                           <span class="mut">C</span> <b class="${up ? 'up' : 'down'}">${fmt(lastC.close, 5)}</b>`;
+  }
+}
+
+canvas.addEventListener('mousemove', (e) => {
+  const r = canvas.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  if (chart.dragging && chart.geo) {
+    const dx = x - chart.dragX;
+    const barsMoved = Math.round(dx / chart.geo.barW);
+    chart.view.offset = Math.max(0, chart.dragOffset - barsMoved);
+  }
+  chart.hover = { x, y };
+  chart.dirty = true;
+});
+canvas.addEventListener('mouseleave', () => { chart.hover = null; chart.dirty = true; });
+canvas.addEventListener('mousedown', (e) => {
+  chart.dragging = true; chart.dragX = e.clientX - canvas.getBoundingClientRect().left;
+  chart.dragOffset = chart.view.offset;
+  canvas.style.cursor = 'grabbing';
+});
+window.addEventListener('mouseup', () => { chart.dragging = false; canvas.style.cursor = 'crosshair'; });
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 1.15 : 0.87;
+  chart.view.bars = Math.max(20, Math.min(500, Math.round(chart.view.bars * factor)));
+  chart.dirty = true;
+}, { passive: false });
+
+let touchDist = 0;
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 2) {
+    touchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  } else if (e.touches.length === 1 && chart.geo) {
+    chart.dragging = true;
+    chart.dragX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+    chart.dragOffset = chart.view.offset;
+  }
+}, { passive: true });
+canvas.addEventListener('touchmove', (e) => {
+  if (e.touches.length === 2) {
+    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    if (touchDist > 0) {
+      chart.view.bars = Math.max(20, Math.min(500, Math.round(chart.view.bars * (touchDist / d))));
+      chart.dirty = true;
+    }
+    touchDist = d;
+  } else if (e.touches.length === 1 && chart.dragging && chart.geo) {
+    const x = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+    const barsMoved = Math.round((x - chart.dragX) / chart.geo.barW);
+    chart.view.offset = Math.max(0, chart.dragOffset - barsMoved);
+  }
+}, { passive: true });
+canvas.addEventListener('touchend', () => { chart.dragging = false; touchDist = 0; }, { passive: true });
+
+function render() {
+  if (chart.dirty || canvas.width !== Math.floor(canvas.clientWidth * (window.devicePixelRatio || 1))) {
+    resizeChart();
+    draw();
+    chart.dirty = false;
+  }
+  requestAnimationFrame(render);
+}
+
+setInterval(loadSystemStatus, 15000);
+setInterval(loadAccount, 30000);
+setInterval(loadPositions, 20000);
+
+(async function init() {
+  try {
+    state.session = await api('/api/auth/session');
+    await boot();
+  } catch (_) {
+    $('login').classList.remove('hide');
+  }
+})();
+</script>
+</body>
+</html>
