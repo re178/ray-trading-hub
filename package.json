@@ -1,0 +1,24 @@
+{
+  "name": "ray-trading-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ray Trading Hub — professional Deriv trading terminal. Orchestration layer over the official Deriv WebSocket API. No prediction layer. No simulated execution.",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "check": "node --check server/index.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "mongoose": "^8.5.1",
+    "ws": "^8.18.0"
+  }
+}
