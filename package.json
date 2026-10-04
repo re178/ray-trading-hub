@@ -5,7 +5,7 @@
   "description": "Ray Trading Hub — professional Deriv trading terminal. Orchestration layer over the official Deriv WebSocket API. No prediction layer. No simulated execution.",
   "main": "server/index.js",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0 <23.0.0"
   },
   "scripts": {
     "start": "node server/index.js",
